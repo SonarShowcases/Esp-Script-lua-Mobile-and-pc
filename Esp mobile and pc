@@ -1,0 +1,251 @@
+local gui = Instance.new("ScreenGui")
+gui.Name = "ESP_GUI"
+gui.Parent = game.CoreGui
+
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 210)
+frame.Position = UDim2.new(0, 100, 0, 100)
+frame.BackgroundColor3 = Color3.new(0, 0, 255)
+frame.Parent = gui
+
+-- Title Label
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -50, 0, 50)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.Text = "ESP Script"
+title.TextColor3 = Color3.new(0, 255, 0)
+title.BackgroundTransparency = 0
+title.Parent = frame
+
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 50, 0, 50)
+closeButton.Position = UDim2.new(1, -50, 0, 0)
+closeButton.Text = "HI"
+closeButton.TextColor3 = Color3.new(255, 0, 0)
+closeButton.BackgroundColor3 = Color3.new(0, 0, 0)
+closeButton.Parent = frame
+
+local espButton = Instance.new("TextButton")
+espButton.Size = UDim2.new(1, 0, 0, 50)
+espButton.Position = UDim2.new(0, 0, 0, 60)
+espButton.Text = "Toggle ESP"
+espButton.BackgroundColor3 = Color3.new(255, 0, 0)
+espButton.TextColor3 = Color3.new(0, 0, 0)
+espButton.Parent = frame
+
+local espEnabled = false
+
+
+local tracerButton = Instance.new("TextButton")
+tracerButton.Size = UDim2.new(1, 0, 0, 50)
+tracerButton.Position = UDim2.new(0, 0, 0, 120)
+tracerButton.Text = "Toggle Tracer"
+tracerButton.BackgroundColor3 = Color3.new(255, 0, 0)
+tracerButton.TextColor3 = Color3.new(0, 0, 0)
+tracerButton.Parent = frame
+
+local tracersEnabled = false
+local tracers = {}
+
+
+local bboxButton = Instance.new("TextButton")
+bboxButton.Size = UDim2.new(1, 0, 0, 50)
+bboxButton.Position = UDim2.new(0, 0, 0, 180)
+bboxButton.Text = "Toggle Box"
+bboxButton.BackgroundColor3 = Color3.new(255, 0, 0)
+bboxButton.TextColor3 = Color3.new(0, 0, 0)
+bboxButton.Parent = frame
+
+local bboxEnabled = false
+local boundingBoxes = {}
+
+
+local dragInput = nil
+local dragStart = nil
+local startPos = nil
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragStart = input.Position
+        startPos = frame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragStart = nil
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if input == dragInput and dragStart then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local function createESP(player)
+    local espBox = Instance.new("BoxHandleAdornment")
+    espBox.Size = Vector3.new(4, 6, 4)
+    espBox.Color3 = Color3.new(0, 1, 0)
+    espBox.Transparency = 0.7
+    espBox.Adornee = player.Character.HumanoidRootPart
+    espBox.AlwaysOnTop = true
+    espBox.ZIndex = 1
+    espBox.Parent = player.Character.HumanoidRootPart
+    return espBox
+end
+
+local function createTracer(player)
+    local tracer = Drawing.new("Line")
+    tracer.Color = Color3.new(0, 1, 0)
+    tracer.Thickness = 1
+    tracer.Transparency = 1
+    tracer.Visible = true
+    tracers[player.Name] = tracer
+end
+
+
+local function createBoundingBox(player)
+    local bbox = Instance.new("SelectionBox")
+    bbox.Adornee = player.Character
+    bbox.Color3 = Color3.new(0, 1, 0)
+    bbox.LineThickness = 0.05
+    bbox.Transparency = 0.7
+    bbox.Parent = player.Character
+    boundingBoxes[player.Name] = bbox
+end
+
+
+local function updateTracers()
+    if tracersEnabled then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local tracer = tracers[player.Name]
+                if tracer then
+                    local rootPart = player.Character.HumanoidRootPart
+                    local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(rootPart.Position)
+                    local localPos, _ = workspace.CurrentCamera:WorldToViewportPoint(game.Players.LocalPlayer.Character.HumanoidRootPart.Position)
+                    if onScreen then
+                        tracer.From = Vector2.new(localPos.X, localPos.Y)
+                        tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                        tracer.Visible = true
+                    else
+                        tracer.Visible = false
+                    end
+                end
+            end
+        end
+    else
+        for _, tracer in pairs(tracers) do
+            tracer.Visible = false
+        end
+    end
+end
+
+
+espButton.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    espButton.Text = espEnabled and "Disable ESP" or "Enable ESP"
+    
+    if espEnabled then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not player.Character.HumanoidRootPart:FindFirstChild("ESPBox") then
+                    createESP(player)
+                end
+            end
+        end
+    else
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                for _, child in pairs(player.Character.HumanoidRootPart:GetChildren()) do
+                    if child:IsA("BoxHandleAdornment") then
+                        child:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end
+
+tracerButton.MouseButton1Click:Connect(function()
+    tracersEnabled = not tracersEnabled
+    tracerButton.Text = tracersEnabled and "Disable Tracer" or "Enable Tracer"
+    
+    if tracersEnabled then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not tracers[player.Name] then
+                    createTracer(player)
+                end
+            end
+        end
+    end
+end)
+
+bboxButton.MouseButton1Click:Connect(function()
+    bboxEnabled = not bboxEnabled
+    bboxButton.Text = bboxEnabled and "Disable BOX" or "Enable Box"
+    
+    if bboxEnabled then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not boundingBoxes[player.Name] then
+                    createBoundingBox(player)
+                end
+            end
+        end
+    else
+        for _, bbox in pairs(boundingBoxes) do
+            bbox:Destroy()
+        end
+        boundingBoxes = {}
+    end
+end)
+
+
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        if espEnabled then
+            wait(1) -- Wait for the character to fully load
+            if character:FindFirstChild("HumanoidRootPart") then
+                createESP(player)
+            end
+        end
+        if tracersEnabled then
+            createTracer(player)
+        end
+        if bboxEnabled then
+            createBoundingBox(player)
+        end
+    end)
+end)
+
+game.Players.PlayerRemoving:Connect(function(player)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        for _, child in pairs(player.Character.HumanoidRootPart:GetChildren()) do
+            if child:IsA("BoxHandleAdornment") then
+                child:Destroy()
+            end
+        end
+    end
+    if tracers[player.Name] then
+        tracers[player.Name]:Remove()
+        tracers[player.Name] = nil
+    end
+    if boundingBoxes[player.Name] then
+        boundingBoxes[player.Name]:Destroy()
+        boundingBoxes[player.Name] = nil
+    end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(updateTracers)
